@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  DOP-C02 Domain 1 - SAM canary deployment with alarm rollback.
+  Everything below is what the author writes. The CodeDeploy application,
+  deployment group and IAM role that actually perform the shift are not
+  written here - compare this file against the Processed template after deploy.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+
+Resources:
+  CanaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: app.lambda_handler
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: Canary10Percent5Minutes
+        Alarms:
+          - !Ref CanaryErrorAlarm
+        Hooks:
+          PreTraffic: !Ref CodeDeployHookPreTraffic
+          PostTraffic: !Ref CodeDeployHookPostTraffic
+      Tags:
+        Project: dop-c02-lab
+        Domain: "1"
+
+  CanaryErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Errors on the CanaryFunction live alias. Rollback trigger.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CanaryFunction
+        - Name: Resource
+          Value: !Sub "${CanaryFunction}:live"
+
+  # The CodeDeployHook_ prefix is required: the AWS managed policy
+  # AWSCodeDeployRoleForLambda scopes lambda:InvokeFunction to
+  # arn:aws:lambda:*:*:function:CodeDeployHook_*
+  CodeDeployHookPreTraffic:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "CodeDeployHook_${AWS::StackName}-pre"
+      CodeUri: hooks/
+      Handler: pre_traffic.lambda_handler
+      DeploymentPreference:
+        Enabled: false
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: codedeploy:PutLifecycleEventHookExecutionStatus
+              Resource: "*"
+      Tags:
+        Project: dop-c02-lab
+
+  CodeDeployHookPostTraffic:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "CodeDeployHook_${AWS::StackName}-post"
+      CodeUri: hooks/
+      Handler: post_traffic.lambda_handler
+      DeploymentPreference:
+        Enabled: false
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: codedeploy:PutLifecycleEventHookExecutionStatus
+              Resource: "*"
+      Tags:
+        Project: dop-c02-lab
+
+Outputs:
+  FunctionName:
+    Value: !Ref CanaryFunction
+  AliasQualifiedName:
+    Value: !Sub "${CanaryFunction}:live"
+  AlarmName:
+    Value: !Ref CanaryErrorAlarm

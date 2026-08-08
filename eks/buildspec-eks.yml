@@ -1,0 +1,39 @@
+version: 0.2
+
+# CodeBuild runs commands from the source root, so every path below is prefixed
+# with eks/ even though this file lives inside eks/.
+env:
+  exported-variables:
+    - IMAGE_TAG
+
+phases:
+  pre_build:
+    commands:
+      - echo "PHASE=pre_build EPOCH=$(date +%s)"
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - export IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}
+      - echo "IMAGE_TAG=$IMAGE_TAG"
+  build:
+    commands:
+      - echo "PHASE=build EPOCH=$(date +%s)"
+      - docker build -f eks/Dockerfile -t $ECR_REGISTRY/dop-c02-lab:$IMAGE_TAG eks/
+      - docker push $ECR_REGISTRY/dop-c02-lab:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo "PHASE=post_build EPOCH=$(date +%s)"
+      # A shell export in this build. The deploy stage echoes the same name.
+      - export MY_IMAGE_URI=$ECR_REGISTRY/dop-c02-lab:$IMAGE_TAG
+      - printf '[{"name":"app","imageUri":"%s"}]' "$MY_IMAGE_URI" > imagedefinitions.json
+      - cat imagedefinitions.json
+      - mkdir -p manifests && cp eks/k8s/*.yaml manifests/
+
+artifacts:
+  secondary-artifacts:
+    ManifestArtifact:
+      files:
+        - 'manifests/*'
+      discard-paths: yes
+    ImageDefArtifact:
+      files:
+        - 'imagedefinitions.json'
+      discard-paths: yes

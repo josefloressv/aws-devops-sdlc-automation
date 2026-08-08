@@ -1,0 +1,2 @@
+{"Parameters":{"EnvName":"staging","LogLevel":"INFO","MemorySize":"256"},
+ "Tags":{"Project":"dop-c02-lab","Env":"staging"}}

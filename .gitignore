@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Build/test output
+reports/
+imagedefinitions.json
+manifests/
+
+# SAM
+.aws-sam/
+packaged.yaml
+
+# Local
+.DS_Store

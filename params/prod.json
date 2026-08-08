@@ -1,0 +1,2 @@
+{"Parameters":{"EnvName":"prod","LogLevel":"WARN","MemorySize":"512"},
+ "Tags":{"Project":"dop-c02-lab","Env":"prod"}}

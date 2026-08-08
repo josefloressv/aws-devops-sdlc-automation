@@ -1,0 +1,39 @@
+version: 0.2
+
+# Consumes two input artifacts:
+#   $CODEBUILD_SRC_DIR                        -> SourceArtifact (primary, carries this file)
+#   $CODEBUILD_SRC_DIR_ManifestArtifact       -> manifests produced by the build stage
+#   $CODEBUILD_SRC_DIR_ImageDefArtifact       -> imagedefinitions.json
+
+phases:
+  install:
+    commands:
+      # First line of the stage on purpose: MY_IMAGE_URI was exported in the
+      # build stage's shell. Print whatever this stage actually sees.
+      - echo "MY_IMAGE_URI=${MY_IMAGE_URI:-<UNSET>}"
+      - echo "IMAGE_TAG=${IMAGE_TAG:-<UNSET>}"
+      - curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+      - chmod +x /usr/local/bin/kubectl
+      - kubectl version --client
+  pre_build:
+    commands:
+      - aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_DEFAULT_REGION"
+      - kubectl get nodes
+      - echo "--- ImageDefArtifact contents ---"
+      - ls -la "$CODEBUILD_SRC_DIR_ImageDefArtifact"
+      - cat "$CODEBUILD_SRC_DIR_ImageDefArtifact/imagedefinitions.json"
+      - echo "--- ManifestArtifact contents ---"
+      - ls -la "$CODEBUILD_SRC_DIR_ManifestArtifact"
+  build:
+    commands:
+      - export IMAGE_URI=$(jq -r '.[0].imageUri' "$CODEBUILD_SRC_DIR_ImageDefArtifact/imagedefinitions.json")
+      - echo "Resolved IMAGE_URI from imagedefinitions.json = $IMAGE_URI"
+      - sed -i "s|IMAGE_URI_PLACEHOLDER|${IMAGE_URI}|g" "$CODEBUILD_SRC_DIR_ManifestArtifact/deployment.yaml"
+      - grep 'image:' "$CODEBUILD_SRC_DIR_ManifestArtifact/deployment.yaml"
+      - kubectl apply -f "$CODEBUILD_SRC_DIR_ManifestArtifact/deployment.yaml"
+      - kubectl apply -f "$CODEBUILD_SRC_DIR_ManifestArtifact/service.yaml"
+  post_build:
+    commands:
+      - kubectl rollout status deployment/dop-c02-eks-app --timeout=180s
+      - kubectl get deploy dop-c02-eks-app -o jsonpath='{.spec.template.spec.containers[0].image}'
+      - echo ""

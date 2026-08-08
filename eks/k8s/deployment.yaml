@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dop-c02-eks-app
+  labels:
+    app: dop-c02-eks-app
+    project: dop-c02-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dop-c02-eks-app
+  template:
+    metadata:
+      labels:
+        app: dop-c02-eks-app
+        project: dop-c02-lab
+    spec:
+      containers:
+        - name: app
+          # Substituted by the deploy stage from imagedefinitions.json.
+          # The image URI is not in this file at build time and is not carried
+          # by the artifacts section either.
+          image: IMAGE_URI_PLACEHOLDER
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -1,0 +1,44 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "PHASE=install EPOCH=$(date +%s) ISO=$(date -Is)"
+      - pip install -r requirements.txt
+  pre_build:
+    commands:
+      - echo "PHASE=pre_build EPOCH=$(date +%s) ISO=$(date -Is)"
+      - mkdir -p reports
+      - flake8 app/ --exit-zero --output-file=reports/flake8.txt || true
+      - bandit -r app/ -f json -o reports/bandit.json || true
+      - echo "static analysis finished"
+  build:
+    commands:
+      - echo "PHASE=build EPOCH=$(date +%s) ISO=$(date -Is)"
+      - pytest tests/test_handler.py --junitxml=reports/junit-unit.xml
+  post_build:
+    commands:
+      - echo "PHASE=post_build EPOCH=$(date +%s) ISO=$(date -Is)"
+      - |
+        printf '[{"name":"app","imageUri":"%s.dkr.ecr.%s.amazonaws.com/dop-c02-lab:%s"}]' \
+          "$AWS_ACCOUNT_ID" "$AWS_DEFAULT_REGION" "$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          > imagedefinitions.json
+      - cat imagedefinitions.json
+reports:
+  UnitTestReport:
+    files:
+      - 'reports/junit-unit.xml'
+    file-format: JUNITXML
+artifacts:
+  secondary-artifacts:
+    TemplateArtifact:
+      files:
+        - 'infra/app-template.yaml'
+        - 'params/*.json'
+      discard-paths: no
+    ImageDefsArtifact:
+      files:
+        - 'imagedefinitions.json'
+        - 'reports/junit-unit.xml'
+      discard-paths: yes

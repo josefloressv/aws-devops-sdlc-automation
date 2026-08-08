@@ -1,0 +1,16 @@
+# CodeDeploy AppSpec for the ECS compute platform.
+# Note the shape: Resources/TargetService, no "hooks per instance" and no
+# BeforeInstall/AfterInstall file copy section - that is the EC2/On-Prem format.
+#
+# TASK_DEFINITION_ARN_PLACEHOLDER is substituted at deploy time. It is not
+# committed with a real value because the ARN embeds the AWS account ID and this
+# repository is public.
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "TASK_DEFINITION_ARN_PLACEHOLDER"
+        LoadBalancerInfo:
+          ContainerName: "app"
+          ContainerPort: 80
