@@ -12,7 +12,9 @@ phases:
           --stack-name dop-c02-app-staging \
           --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" \
           --output text)
-      - echo "Resolved endpoint from stack outputs: $API_URL"
+      # Single-quoted: the command contains ": " and an unquoted plain scalar
+      # would be parsed as a YAML mapping key, not a string.
+      - 'echo "Resolved endpoint from stack outputs: $API_URL"'
       - mkdir -p reports
       - pytest tests/integration/ --junitxml=reports/junit-integration.xml
 reports:
