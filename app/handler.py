@@ -2,7 +2,9 @@
 
 import json
 import os
-import sys  # deliberately unused, so the pre_build static analysis has a real finding
+# The import below is deliberately unused, so the pre_build static
+# analysis step has a real finding to report.
+import sys
 
 ENV_NAME = "ENV_NAME"
 LOG_LEVEL = "LOG_LEVEL"
