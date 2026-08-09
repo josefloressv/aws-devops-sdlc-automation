@@ -2,7 +2,7 @@
 
 import json
 
-VERSION = "v1"
+VERSION = "v3"
 
 
 def lambda_handler(event, context):
